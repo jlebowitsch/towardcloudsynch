@@ -4,20 +4,24 @@ import json
 import concurrent.futures
 
 
-profile='describeipaddress'
+profile='default'
 threadcount=10
 awsapis={
     "ec2":["describe_addresses()"],
     "s3":["list_buckets()"],
     "elasticbeanstalk":["describe_environments()"],
-    "route53":[],
+    "route53":["list_hosted_zones()"],
     "cloudfront":[]
 }
 
 apisubcalls={
     "list_buckets()":{
         "get_bucket_website()":"getbucketwebsite"
+    },
+    "list_hosted_zones()":{
+        "list_resource_record_sets()":"ListResourceRecordSets"
     }
+     
 }
 
 def clientregions(client):
@@ -59,6 +63,15 @@ def getbucketwebsite(rawbucketlist,client):
             W[z]=format(error)
     return W
 
+def ListResourceRecordSets(rawbucketlist,client):
+    Z=[x['Id'] for x in rawbucketlist['HostedZones']]
+    W={}
+    for z in Z:
+        try:
+            W[z]=client.list_resource_record_sets(HostedZoneId=z)
+        except botocore.exceptions.ClientError as error:
+            W[z]=format(error)
+    return W
             
 def main():
     ZZ={x:{} for x in awsapis.keys()}
@@ -71,7 +84,7 @@ def main():
 
 
 RRR=main()
-
+    
 for reg in RRR['s3']:
     newbuck=[]
     for buc in RRR['s3'][reg]['list_buckets()']['Buckets']:
@@ -79,3 +92,5 @@ for reg in RRR['s3']:
         newbuck.append(buc)
     RRR['s3'][reg]['list_buckets()']['Buckets']=newbuck
 print(json.dumps(RRR, sort_keys=True, indent=4))
+with open('cyberpion.json','w', encoding='utf-8') as f:
+    json.dump(RRR, f, ensure_ascii=False, indent=4)
